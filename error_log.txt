@@ -1,0 +1,9 @@
+[2025-07-21 14:34:15] Unhandled exception:
+Traceback (most recent call last):
+  File "F:\Macro_project\Macro-BNS-NEO\main.py", line 471, in <module>
+    app = AutoKeySenderApp()
+  File "F:\Macro_project\Macro-BNS-NEO\main.py", line 55, in __init__
+    self.layout_manager = LayoutManager(self)
+                          ^^^^^^^^^^^^^
+NameError: name 'LayoutManager' is not defined
+
