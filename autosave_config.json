@@ -2,7 +2,7 @@
     "home": {
         "hotkey": "Chuột cạnh dưới",
         "hotkey_mode": "Giữ để chạy",
-        "target_window": "",
+        "target_window": "Start",
         "license_key": "BNSNEO-4FBFE080"
     },
     "main_combo": [
@@ -165,7 +165,7 @@
             "x": 100,
             "y": 100
         },
-        "active_profile": "1920X1080",
-        "detection_mode": "Tự động (Profile)"
+        "active_profile": "",
+        "detection_mode": "Thủ công"
     }
 }
