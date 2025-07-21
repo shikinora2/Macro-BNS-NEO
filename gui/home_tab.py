@@ -52,6 +52,11 @@ class HomeTab(ctk.CTkFrame):
         self.window_combo.grid(row=2, column=1, columnspan=3, padx=(0, 5), pady=(0, 8), sticky="ew")
         self.refresh_button = ctk.CTkButton(top_frame, text="Làm mới", width=80, font=ctk.CTkFont(size=11), command=self._refresh_window_list)
         self.refresh_button.grid(row=2, column=4, columnspan=2, padx=(5,0), pady=(0, 8), sticky="w")
+
+        # --- Dòng 3: Hiệu suất (FPS) ---
+        ctk.CTkLabel(top_frame, text="HIỆU SUẤT:", font=ctk.CTkFont(weight="bold", size=12), width=100, anchor="w").grid(row=3, column=0, padx=(0, 5), pady=(0, 8), sticky="w")
+        self.fps_label = ctk.CTkLabel(top_frame, text="N/A", font=ctk.CTkFont(weight="bold"), text_color="cyan", anchor="w")
+        self.fps_label.grid(row=3, column=1, pady=(0, 8), sticky="w")
         
         info_notebook = ctk.CTkTabview(self, corner_radius=6)
         info_notebook.pack(fill="both", expand=True, padx=5, pady=3)
@@ -74,16 +79,23 @@ class HomeTab(ctk.CTkFrame):
         self.log_message("Ứng dụng đã sẵn sàng. Vui lòng kích hoạt License Key.")
         self.after(150, self._refresh_window_list)
     
+    def update_performance_display(self, fps):
+        """Cập nhật nhãn hiển thị FPS của macro."""
+        try:
+            if not self.winfo_exists(): return
+            if fps > 0:
+                self.fps_label.configure(text=f"{fps:.1f} FPS")
+            else:
+                self.fps_label.configure(text="N/A")
+        except (RuntimeError, TclError):
+            pass
+
     def _refresh_window_list(self):
         self.refresh_button.configure(state="disabled", text="Đang tải...")
         threading.Thread(target=self._threaded_get_windows, daemon=True).start()
         self.after(100, self._process_window_list_queue)
 
     def _threaded_get_windows(self):
-        """
-        [LUỒNG PHỤ] Lấy danh sách cửa sổ và đặt kết quả vào queue.
-        Hàm này không tương tác với UI.
-        """
         try:
             window_titles = [win.title for win in gw.getAllWindows() if win.title]
             self.window_list_queue.put(window_titles)
@@ -91,10 +103,6 @@ class HomeTab(ctk.CTkFrame):
             self.window_list_queue.put(e)
 
     def _process_window_list_queue(self):
-        """
-        [LUỒNG CHÍNH] Kiểm tra queue để lấy kết quả từ luồng phụ.
-        Hàm này an toàn để cập nhật UI.
-        """
         try:
             result = self.window_list_queue.get_nowait()
             if isinstance(result, Exception):
@@ -107,10 +115,6 @@ class HomeTab(ctk.CTkFrame):
             pass
 
     def _update_window_list_ui(self, window_titles, error=None):
-        """
-        [LUỒNG CHÍNH] Cập nhật ComboBox danh sách cửa sổ.
-        Chỉ được gọi từ luồng chính.
-        """
         try:
             if not self.winfo_exists():
                 return
@@ -193,6 +197,9 @@ class HomeTab(ctk.CTkFrame):
         self.app.main_combo_tab.set_config(config_data.get("main_combo", {}))
         self.app.sub_combo_tab.set_config(config_data.get("sub_combo", {}))
         self.app.settings_tab.set_config(config_data.get("settings", {}))
+        
+        self.app.condition_handler.clear_template_cache()
+        
         self.update_status("ready")
         self.log_message("Tải cấu hình hoàn tất.")
 
@@ -256,3 +263,4 @@ class HomeTab(ctk.CTkFrame):
         except Exception as e:
             self.log_message(f"Lỗi khi tải cấu hình: {e}")
             messagebox.showerror("Lỗi Tải File", f"Không thể đọc file cấu hình.\nFile có thể bị hỏng hoặc không đúng định dạng.\n\nChi tiết: {e}", parent=self.app.root)
+
