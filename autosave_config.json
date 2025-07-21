@@ -165,7 +165,7 @@
             "x": 100,
             "y": 100
         },
-        "active_profile": "",
-        "detection_mode": "Thủ công"
+        "active_profile": "7920x1080",
+        "detection_mode": "Tự động (Profile)"
     }
 }
