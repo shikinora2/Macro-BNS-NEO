@@ -3,18 +3,22 @@ import customtkinter as ctk
 import threading
 import time
 import os
+# --- SỬA LỖI ---
+# Xóa bỏ đoạn code thêm sys.path vì đã có __init__.py để định nghĩa package
+import sys
 import pygetwindow as gw
 from tkinter import messagebox
 from pynput import mouse
-import sys
 import ctypes
 import json
+import cv2
+import numpy as np
 
 from core.license_manager import LicenseManager
 from core.layout_manager import LayoutManager
 from gui.status_overlay import StatusOverlay
 from core.pickers import ScreenPicker
-from core.utils import resource_path, image_to_base64
+from core.utils import resource_path
 from gui.home_tab import HomeTab
 from gui.main_combo_tab import ComboTab
 from gui.sub_combo_tab import SubComboTab
@@ -22,13 +26,15 @@ from gui.settings_tab import SettingsTab
 from gui.other_apps_tab import OtherAppsTab
 from core.conditional_logic import ConditionalLogicHandler
 from core.key_sender import KeySender
+from core.optimized_image_recognition import OptimizedImageRecognizer
 
 class AutoKeySenderApp:
     def __init__(self):
         self.root = ctk.CTk()
         self.root.title("Macro BNS NEO")
         self.root.geometry("720x680")
-        self.root.resizable(False, False)
+        self.root.minsize(640, 600) 
+        self.root.resizable(True, True)
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
 
@@ -42,10 +48,12 @@ class AutoKeySenderApp:
         self.license_manager = LicenseManager()
         self.key_sender = KeySender(self)
         
+        self.image_recognizer = OptimizedImageRecognizer()
+        
         self._setup_ui() 
         
         self.layout_manager = LayoutManager(self)
-        self.condition_handler = ConditionalLogicHandler(self)
+        self.condition_handler = ConditionalLogicHandler(self, self.image_recognizer)
 
         self.settings_tab.populate_profiles()
 
@@ -164,6 +172,9 @@ class AutoKeySenderApp:
         else: self._quit_app()
 
     def _quit_app(self):
+        self.condition_handler.shutdown_executor()
+        self.image_recognizer.stop_all_cameras()
+        
         if self.tray_icon: self.tray_icon.stop()
         self.is_hotkey_pressed = False
         self.root.quit()
@@ -201,6 +212,39 @@ class AutoKeySenderApp:
                 actions.append((key, int(delay_str)))
         return actions
 
+    def reset_all_configurations(self):
+        answer = messagebox.askyesno(
+            "Xác nhận Reset",
+            "Bạn có chắc chắn muốn xóa TOÀN BỘ cấu hình đã lưu và quay về mặc định không?\n\nHành động này không thể hoàn tác.",
+            icon='warning',
+            parent=self.root
+        )
+        if not answer:
+            self.home_tab.log_message("Đã hủy thao tác reset.")
+            return
+
+        self.home_tab.log_message("Bắt đầu reset toàn bộ cấu hình...")
+        
+        self.home_tab.reset_to_default()
+        self.condition_handler.clear_template_cache()
+        self.image_recognizer.stop_all_cameras()
+        self.layout_manager.located_regions.clear()
+        
+        self.is_license_valid = False
+        self.toggle_combo_tabs_lock(True)
+
+        for filename in ["autosave_config.json", "autosave.path"]:
+            try:
+                if os.path.exists(filename):
+                    os.remove(filename)
+                    self.home_tab.log_message(f"Đã xóa file: {filename}")
+            except Exception as e:
+                self.home_tab.log_message(f"Lỗi khi xóa {filename}: {e}")
+        
+        self.home_tab.log_message("Reset hoàn tất. Vui lòng khởi động lại ứng dụng nếu cần.")
+        messagebox.showinfo("Hoàn tất", "Đã reset toàn bộ cấu hình về mặc định.", parent=self.root)
+
+
     def _run_macro(self):
         target_title = self.home_tab.window_combo.get()
         game_window = gw.getWindowsWithTitle(target_title)
@@ -213,6 +257,9 @@ class AutoKeySenderApp:
         main_actions = self._process_config_to_actions(self.main_combo_tab.get_config())
         sub_combo_full_config = self.sub_combo_tab.get_config()
         
+        fps_start_time = time.time()
+        frame_counter = 0
+
         if main_actions:
             self.root.after(0, self.home_tab.log_message, "Chạy macro với Combo Chính...")
             
@@ -225,10 +272,10 @@ class AutoKeySenderApp:
             self.root.after(0, self.home_tab.log_message, f"Sử dụng Combo {last_used_combo_name}.")
 
             while self.is_hotkey_pressed:
-                current_time = time.time()
+                loop_start_time = time.time()
                 
-                if (current_time - last_condition_check_time > condition_check_interval):
-                    last_condition_check_time = current_time
+                if (loop_start_time - last_condition_check_time > condition_check_interval):
+                    last_condition_check_time = loop_start_time
                     
                     if not game_window.isActive:
                         try: 
@@ -236,7 +283,7 @@ class AutoKeySenderApp:
                             time.sleep(0.05) 
                         except Exception: 
                             pass 
-
+                    
                     sub_actions, sub_combo_name = self.condition_handler.check_for_sub_combo(sub_combo_full_config)
                     
                     next_actions = sub_actions if sub_actions is not None else main_actions
@@ -249,35 +296,29 @@ class AutoKeySenderApp:
                     current_active_actions = next_actions
                 
                 if current_active_actions:
-                    # Lấy danh sách các phím bị vô hiệu hóa
                     disabled_keys = self.condition_handler.get_disabled_keys(sub_combo_full_config)
 
                     for key, delay_ms in current_active_actions:
-                        # Bỏ qua phím nếu nó nằm trong danh sách bị vô hiệu hóa
                         if key in disabled_keys:
                             continue
 
                         cooldown_sec = delay_ms / 1000.0
                         if cooldown_sec <= 0: cooldown_sec = 0.01 
                         
-                        if current_time - last_sent_times.get(key, 0) >= cooldown_sec:
+                        if loop_start_time - last_sent_times.get(key, 0) >= cooldown_sec:
                             self.key_sender.send_key(key)
-                            last_sent_times[key] = current_time
+                            last_sent_times[key] = loop_start_time
                 
+                frame_counter += 1
+                current_time_fps = time.time()
+                if current_time_fps - fps_start_time >= 1.0:
+                    fps = frame_counter / (current_time_fps - fps_start_time)
+                    self.root.after(0, self.home_tab.update_performance_display, fps)
+                    fps_start_time = current_time_fps
+                    frame_counter = 0
+
                 time.sleep(0.001) 
         else:
-            hp_enabled = sub_combo_full_config.get("hp", {}).get("enabled") == "on"
-            mana_enabled = sub_combo_full_config.get("mana", {}).get("enabled") == "on"
-            skill_enabled = any(rule.get("enabled") == "on" for rule in sub_combo_full_config.get("skill", {}).get("rules", []))
-            crit_enabled = any(rule.get("enabled") == "on" for rule in sub_combo_full_config.get("crit", {}).get("rules", []))
-
-            if not (hp_enabled or mana_enabled or skill_enabled or crit_enabled):
-                self.root.after(0, self.home_tab.log_message, "Lỗi: Combo Chính trống và không có Combo Phụ nào được bật.")
-                self.is_macro_manager_running = False
-                return
-
-            self.root.after(0, self.home_tab.log_message, "Chạy macro ở chế độ chỉ kiểm tra Combo Phụ...")
-            
             while self.is_hotkey_pressed:
                 if not game_window.isActive:
                     try: 
@@ -297,8 +338,17 @@ class AutoKeySenderApp:
                         if delay_ms > 0:
                             time.sleep(delay_ms / 1000.0)
                 
+                frame_counter += 1
+                current_time_fps = time.time()
+                if current_time_fps - fps_start_time >= 1.0:
+                    fps = frame_counter / (current_time_fps - fps_start_time)
+                    self.root.after(0, self.home_tab.update_performance_display, fps)
+                    fps_start_time = current_time_fps
+                    frame_counter = 0
+
                 time.sleep(0.05)
 
+        self.root.after(0, self.home_tab.update_performance_display, 0)
         self.root.after(0, self.home_tab.log_message, "Macro đã dừng.")
         self.is_macro_manager_running = False
 
@@ -345,19 +395,28 @@ class AutoKeySenderApp:
             self.home_tab._silent_autosave()
 
     def test_single_image_condition(self, panel_data):
-        self.home_tab.log_message("Bắt đầu kiểm tra điều kiện hình ảnh...")
+        self.home_tab.log_message("Bắt đầu kiểm tra điều kiện hình ảnh (DXcam)...")
         pil_image = panel_data.get("template_image")
         if not pil_image:
             messagebox.showerror("Lỗi", "Không có ảnh mẫu để kiểm tra.", parent=self.root)
             return
-        temp_rule_config = {
-            "template_image_b64": image_to_base64(pil_image),
-            "monitor_region": panel_data.get("monitor_region"),
-            "confidence": panel_data.get("confidence").get()
-        }
-        is_match = self.condition_handler._check_image_condition(temp_rule_config)
-        if is_match:
-            message = "Thành công! Ảnh mẫu được tìm thấy trong vùng giám sát."
+
+        monitor_region = panel_data.get("monitor_region")
+        if not isinstance(monitor_region, tuple):
+            messagebox.showerror("Lỗi", "Chưa chọn vùng giám sát.", parent=self.root)
+            return
+            
+        try:
+            confidence = float(panel_data.get("confidence").get()) / 100.0
+            template_cv = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Dữ liệu đầu vào không hợp lệ: {e}", parent=self.root)
+            return
+
+        match_location = self.image_recognizer.find_image(template_cv, monitor_region, confidence)
+        
+        if match_location:
+            message = f"Thành công! Ảnh mẫu được tìm thấy tại tọa độ: {match_location}."
             self.home_tab.log_message(message)
             messagebox.showinfo("Kiểm tra thành công", message, parent=self.root)
         else:
@@ -412,12 +471,10 @@ if __name__ == "__main__":
         app = AutoKeySenderApp()
         app.root.mainloop()
     except Exception as e:
-        # Ghi log lỗi vào file
         with open("error_log.txt", "a", encoding='utf-8') as f:
             import traceback
             f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Unhandled exception:\n")
             traceback.print_exc(file=f)
             f.write("\n")
-        # Hiển thị thông báo lỗi cho người dùng
         messagebox.showerror("Lỗi nghiêm trọng", f"Ứng dụng đã gặp lỗi không xác định và sẽ thoát.\n\nChi tiết: {e}\n\nVui lòng kiểm tra file error_log.txt.")
         sys.exit(1)
