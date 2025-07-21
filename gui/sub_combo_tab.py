@@ -1,8 +1,12 @@
 ﻿# gui/sub_combo_tab.py
 import customtkinter as ctk
 
+# --- SỬA LỖI IMPORT (Lần 2) ---
+# Quay lại sử dụng import tương đối (relative import).
+# Lỗi này sẽ được giải quyết triệt để bằng cách thêm code vào đầu file main.py
+# để đảm bảo Python nhận diện đúng cấu trúc thư mục của dự án.
 from .mana_tab import ManaTab
-from .hp_tab import HPTab  # <-- IMPORT MỚI
+from .hp_tab import HPTab
 from .skill_tab import SkillTab
 from .crit_tab import CritTab
 
@@ -29,15 +33,23 @@ class SubComboTab(ctk.CTkFrame):
 
     def get_config(self):
         return {
-            "hp": self.hp_tab.get_config(), # <-- THÊM MỚI
+            "hp": self.hp_tab.get_config(),
             "mana": self.mana_tab.get_config(),
             "skill": self.skill_tab.get_config(),
             "crit": self.crit_tab.get_config()
         }
 
     def set_config(self, data):
-        if not data: return
-        self.hp_tab.set_config(data.get("hp", {})) # <-- THÊM MỚI
+        if not data: 
+            # Khi reset, data có thể là None hoặc {}
+            # Cần gọi set_config cho các tab con với {} để chúng tự reset
+            self.hp_tab.set_config({})
+            self.mana_tab.set_config({})
+            self.skill_tab.set_config({})
+            self.crit_tab.set_config({})
+            return
+            
+        self.hp_tab.set_config(data.get("hp", {}))
         self.mana_tab.set_config(data.get("mana", {}))
         self.skill_tab.set_config(data.get("skill", {}))
         self.crit_tab.set_config(data.get("crit", {}))
