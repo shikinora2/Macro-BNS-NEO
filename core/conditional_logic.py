@@ -124,7 +124,7 @@ class ConditionalLogicHandler:
                 self.app.key_sender.send_key(key)
                 if delay_ms > 0: time.sleep(delay_ms / 1000.0)
             
-            time.sleep(0.1) # Chờ game cập nhật giao diện
+            time.sleep(0.0001) # Chờ game cập nhật giao diện
             
             # Sau đó kiểm tra điều kiện
             if self._check_image_condition(rule_config):
