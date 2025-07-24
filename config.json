@@ -2,27 +2,35 @@
     "home": {
         "hotkey": "Chuột cạnh dưới",
         "hotkey_mode": "Giữ để chạy",
-        "target_window": "Untitled - Notepad",
+        "target_window": "Blade & Soul",
         "license_key": "BNSNEO-4FBFE080"
     },
-    "main_combo": [],
+    "main_combo": [
+        {
+            "key": "Tab",
+            "delay": "100"
+        },
+        {
+            "key": "R",
+            "delay": "35"
+        },
+        {
+            "key": "T",
+            "delay": "60"
+        }
+    ],
     "sub_combo": {
         "hp": {
-            "enabled": "on",
-            "threshold": 92,
-            "tolerance": "35",
+            "enabled": "off",
+            "threshold": 30,
+            "tolerance": "15",
             "combo": [
                 {
                     "key": "4",
                     "delay": "100"
                 }
             ],
-            "hp_bar_region_manual": [
-                1163,
-                778,
-                1365,
-                784
-            ],
+            "hp_bar_region_manual": null,
             "hp_color_library_manual": [
                 "#D32F2F",
                 "#E53935",
@@ -31,109 +39,127 @@
             ]
         },
         "mana": {
-            "enabled": "off",
-            "threshold": 5,
+            "enabled": "on",
+            "threshold": 4,
             "tolerance": "10",
-            "combo": [],
+            "combo": [
+                {
+                    "key": "Tab",
+                    "delay": "100"
+                },
+                {
+                    "key": "T",
+                    "delay": "50"
+                }
+            ],
             "mana_coords_manual": [
                 {
                     "id": 1,
                     "coord": [
-                        850,
-                        950
+                        838,
+                        916
                     ]
                 },
                 {
                     "id": 2,
                     "coord": [
-                        870,
-                        950
+                        866,
+                        916
                     ]
                 },
                 {
                     "id": 3,
                     "coord": [
-                        890,
-                        950
+                        893,
+                        917
                     ]
                 },
                 {
                     "id": 4,
                     "coord": [
-                        910,
-                        950
+                        920,
+                        914
                     ]
                 },
                 {
                     "id": 5,
                     "coord": [
-                        930,
-                        950
+                        946,
+                        915
                     ]
                 },
                 {
                     "id": 6,
                     "coord": [
-                        950,
-                        950
+                        975,
+                        919
                     ]
                 },
                 {
                     "id": 7,
                     "coord": [
-                        970,
-                        950
+                        997,
+                        915
                     ]
                 },
                 {
                     "id": 8,
                     "coord": [
-                        990,
-                        950
+                        1027,
+                        915
                     ]
                 },
                 {
                     "id": 9,
                     "coord": [
-                        1010,
-                        950
+                        1056,
+                        917
                     ]
                 },
                 {
                     "id": 10,
                     "coord": [
-                        1030,
-                        950
+                        1079,
+                        914
                     ]
                 }
             ],
             "mana_color_library_manual": [
                 "#28C8FF",
                 "#25BEE8",
-                "#A3E8FF"
+                "#A3E8FF",
+                "#F6F6F8",
+                "#459CC6",
+                "#A3C8DE"
             ]
         },
         "skill": {
             "rules": [
                 {
-                    "enabled": "off",
+                    "enabled": "on",
+                    "rule_type": "Kích hoạt Combo",
+                    "logic_order": "Kiểm tra điều kiện rồi sử dụng Skill",
+                    "disabled_key": "",
                     "combo": [],
+                    "combo_post": [],
                     "template_image_b64": null,
                     "monitor_region": "Chưa có",
-                    "confidence": "80",
-                    "logic_order": "Kiểm tra điều kiện rồi sử dụng Skill"
+                    "confidence": "80"
                 }
             ]
         },
         "crit": {
             "rules": [
                 {
-                    "enabled": "off",
+                    "enabled": "on",
+                    "rule_type": "Kích hoạt Combo",
+                    "logic_order": "Kiểm tra điều kiện rồi sử dụng Skill",
+                    "disabled_key": "",
                     "combo": [],
+                    "combo_post": [],
                     "template_image_b64": null,
                     "monitor_region": "Chưa có",
-                    "confidence": "80",
-                    "logic_order": "Kiểm tra điều kiện rồi sử dụng Skill"
+                    "confidence": "80"
                 }
             ]
         }
