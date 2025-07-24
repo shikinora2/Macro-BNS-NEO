@@ -3,8 +3,6 @@ import customtkinter as ctk
 import threading
 import time
 import os
-# --- SỬA LỖI ---
-# Xóa bỏ đoạn code thêm sys.path vì đã có __init__.py để định nghĩa package
 import sys
 import pygetwindow as gw
 from tkinter import messagebox
@@ -280,7 +278,7 @@ class AutoKeySenderApp:
                     if not game_window.isActive:
                         try: 
                             game_window.activate()
-                            time.sleep(0.05) 
+                            time.sleep(0.0001) 
                         except Exception: 
                             pass 
                     
@@ -323,7 +321,7 @@ class AutoKeySenderApp:
                 if not game_window.isActive:
                     try: 
                         game_window.activate()
-                        time.sleep(0.05) 
+                        time.sleep(0.0001) 
                     except Exception: 
                         pass 
 
@@ -346,7 +344,7 @@ class AutoKeySenderApp:
                     fps_start_time = current_time_fps
                     frame_counter = 0
 
-                time.sleep(0.05)
+                time.sleep(0.0001)
 
         self.root.after(0, self.home_tab.update_performance_display, 0)
         self.root.after(0, self.home_tab.log_message, "Macro đã dừng.")
