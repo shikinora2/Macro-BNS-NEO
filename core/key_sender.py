@@ -76,7 +76,7 @@ class KeySender:
             try:
                 self.keyboard_controller.press(key_code)
                 # Thêm một khoảng trễ nhỏ giữa press và release để game có thể nhận phím
-                time.sleep(0.00001) 
+                time.sleep(0)
                 self.keyboard_controller.release(key_code)
             except Exception as e:
                 # Ghi log lỗi thông qua luồng UI chính
