@@ -3,22 +3,40 @@ import json
 import base64
 import os
 from datetime import datetime
-from core.utils import resource_path # <-- Import hàm mới
+# Không cần import resource_path ở đây nữa
 
 class LicenseManager:
     def __init__(self):
-        # Dùng hàm resource_path để tìm đúng đường dẫn của keys.json
-        self.keys_file_path = resource_path(os.path.join('core', 'keys.json'))
+        """
+        Khởi tạo LicenseManager.
+        Đường dẫn đến keys.json giờ đây được xác định một cách đáng tin cậy
+        dựa trên vị trí của chính tệp script này.
+        """
+        try:
+            # Lấy đường dẫn tuyệt đối đến thư mục chứa file script này (thư mục 'core')
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            # Ghép đường dẫn thư mục đó với tên file 'keys.json'
+            self.keys_file_path = os.path.join(script_dir, 'keys.json')
+        except NameError:
+            # Fallback cho các môi trường không định nghĩa __file__ (ví dụ: khi đóng gói)
+            # Giả định rằng thư mục làm việc hiện tại là thư mục gốc của dự án
+            self.keys_file_path = os.path.join('core', 'keys.json')
+
         self.keys_data = self._load_keys()
 
     def _load_keys(self):
-        """Tải cơ sở dữ liệu keys từ file JSON được đóng gói."""
+        """Tải cơ sở dữ liệu keys từ file JSON."""
+        # Kiểm tra xem tệp có tồn tại không trước khi mở
+        if not os.path.exists(self.keys_file_path):
+            print(f"LỖI: Không tìm thấy tệp keys.json tại đường dẫn: {self.keys_file_path}")
+            return {}
+        
         try:
             with open(self.keys_file_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            # Nếu không tìm thấy file keys.json, trả về một từ điển rỗng
-            # để ứng dụng không bị crash.
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            # Ghi lại lỗi để dễ dàng gỡ lỗi hơn
+            print(f"LỖI: Không thể tải tệp keys.json. Lỗi: {e}")
             return {}
 
     def check_license(self, user_key):
@@ -28,6 +46,11 @@ class LicenseManager:
         - status: "VALID", "INVALID", "EXPIRED"
         - expiry_date: ngày hết hạn (str) hoặc None
         """
+        if not self.keys_data:
+            # Nếu không có dữ liệu key nào được tải, mọi key đều không hợp lệ.
+            print("CẢNH BÁO: Cơ sở dữ liệu key rỗng. Mọi key sẽ bị từ chối.")
+            return "INVALID", None
+
         if not user_key or user_key not in self.keys_data:
             return "INVALID", None
 
@@ -57,4 +80,3 @@ class LicenseManager:
             # Nếu có bất kỳ lỗi nào trong quá trình giải mã hoặc xử lý,
             # coi như key không hợp lệ.
             return "INVALID", None
-
