@@ -7,16 +7,20 @@
     },
     "main_combo": [
         {
+            "key": "4",
+            "delay": "1000"
+        },
+        {
             "key": "Tab",
-            "delay": "100"
+            "delay": "1000"
         },
         {
             "key": "R",
-            "delay": "35"
+            "delay": "15"
         },
         {
             "key": "T",
-            "delay": "60"
+            "delay": "35"
         }
     ],
     "sub_combo": {
@@ -39,9 +43,9 @@
             ]
         },
         "mana": {
-            "enabled": "on",
+            "enabled": "off",
             "threshold": 4,
-            "tolerance": "10",
+            "tolerance": "0",
             "combo": [
                 {
                     "key": "Tab",
@@ -49,88 +53,85 @@
                 },
                 {
                     "key": "T",
-                    "delay": "50"
+                    "delay": "35"
                 }
             ],
             "mana_coords_manual": [
                 {
                     "id": 1,
                     "coord": [
-                        838,
-                        916
+                        850,
+                        950
                     ]
                 },
                 {
                     "id": 2,
                     "coord": [
-                        866,
-                        916
+                        870,
+                        950
                     ]
                 },
                 {
                     "id": 3,
                     "coord": [
-                        893,
-                        917
+                        890,
+                        950
                     ]
                 },
                 {
                     "id": 4,
                     "coord": [
-                        920,
-                        914
+                        910,
+                        950
                     ]
                 },
                 {
                     "id": 5,
                     "coord": [
-                        946,
-                        915
+                        930,
+                        950
                     ]
                 },
                 {
                     "id": 6,
                     "coord": [
-                        975,
-                        919
+                        950,
+                        950
                     ]
                 },
                 {
                     "id": 7,
                     "coord": [
-                        997,
-                        915
+                        970,
+                        950
                     ]
                 },
                 {
                     "id": 8,
                     "coord": [
-                        1027,
-                        915
+                        990,
+                        950
                     ]
                 },
                 {
                     "id": 9,
                     "coord": [
-                        1056,
-                        917
+                        1010,
+                        950
                     ]
                 },
                 {
                     "id": 10,
                     "coord": [
-                        1079,
-                        914
+                        1030,
+                        950
                     ]
                 }
             ],
             "mana_color_library_manual": [
                 "#28C8FF",
                 "#25BEE8",
-                "#A3E8FF",
-                "#F6F6F8",
-                "#459CC6",
-                "#A3C8DE"
+                "#A3E8FF"
             ]
         },
         "skill": {
