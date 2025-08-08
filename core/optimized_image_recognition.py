@@ -1,51 +1,57 @@
 ﻿# Tệp: core/optimized_image_recognition.py
 #
-# PHIÊN BẢN SỬA LỖI "ACCESS VIOLATION" KHI THOÁT ỨNG DỤNG
-# - Đảm bảo các đối tượng camera được giải phóng tài nguyên một cách tường minh.
+# PHIÊN BẢN SỬA LỖI & TỐI ƯU HÓA
+# - Sửa lỗi kiểm tra phiên bản DXcam bằng cách sử dụng try-except khi import.
+# - Giữ nguyên "lazy initialization" để tối ưu và tránh lỗi.
 
 import cv2
 import numpy as np
-import dxcam
 import time
 
 class OptimizedImageRecognizer:
     """
     Lớp này xử lý việc nhận diện ảnh với hiệu suất cao bằng cách sử dụng DXcam.
-    Nó sẽ tự động khởi tạo một camera cho mỗi vùng giám sát để tối ưu hóa.
     """
     def __init__(self):
-        self.cameras = {} # Dictionary để lưu các instance camera cho mỗi vùng
+        self.cameras = {}  # Dictionary để lưu các instance camera cho mỗi vùng
         self.is_dxcam_available = True
         try:
-            # Thử tạo một camera tạm thời để kiểm tra thư viện có hoạt động không.
-            temp_camera = dxcam.create()
-            if temp_camera:
-                # --- SỬA LỖI ---
-                # Xóa đối tượng camera tạm thời ngay lập tức để tránh bị rò rỉ.
-                del temp_camera
-            print("[+] DXcam được hỗ trợ và đã sẵn sàng.")
+            # SỬA LỖI: Đây là cách kiểm tra an toàn nhất.
+            # Nếu thư viện có thể được import, chúng ta coi như nó đã sẵn sàng.
+            import dxcam
+            print(f"[+] Thư viện DXcam đã được tìm thấy và sẵn sàng.")
+        except ImportError:
+            print(f"[-] Lỗi: Thư viện DXcam chưa được cài đặt. Nhận diện ảnh sẽ không hoạt động.")
+            self.is_dxcam_available = False
         except Exception as e:
-            print(f"[-] Lỗi khi khởi tạo DXcam: {e}. Chuyển sang chế độ nhận diện cũ (nếu có).")
+            # Bắt các lỗi tiềm ẩn khác khi import
+            print(f"[-] Lỗi không xác định với DXcam: {e}. Nhận diện ảnh sẽ không hoạt động.")
             self.is_dxcam_available = False
 
     def get_camera(self, region):
         """
-        Lấy hoặc tạo một camera cho một vùng cụ thể.
-        Việc này giúp tránh phải khởi tạo lại camera mỗi lần check.
+        Lấy hoặc tạo một camera cho một vùng cụ thể (Lazy Initialization).
         """
         if not self.is_dxcam_available:
             return None
+
+        # Lazily import dxcam here to ensure it's only imported when needed
+        import dxcam
 
         region_key = tuple(region)
         if region_key not in self.cameras:
             try:
                 print(f"[+] Tạo camera DXcam mới cho vùng: {region}")
-                self.cameras[region_key] = dxcam.create(region=region)
-                self.cameras[region_key].start(target_fps=240, video_mode=True)
+                camera = dxcam.create(region=region)
+                if camera is None:
+                    raise Exception("DXcam.create() trả về None. Card đồ họa có thể không được hỗ trợ.")
+                camera.start(target_fps=240, video_mode=True)
+                self.cameras[region_key] = camera
             except Exception as e:
-                print(f"[-] Lỗi khi tạo camera DXcam cho vùng {region}: {e}")
+                print(f"[-] Lỗi nghiêm trọng khi tạo camera DXcam cho vùng {region}: {e}")
                 self.cameras[region_key] = None
-        return self.cameras[region_key]
+        
+        return self.cameras.get(region_key)
 
     def find_image(self, template_image, region, confidence=0.8):
         """
@@ -80,16 +86,14 @@ class OptimizedImageRecognizer:
 
     def stop_all_cameras(self):
         """
-        --- SỬA LỖI ---
         Dừng và giải phóng tất cả các camera một cách an toàn khi ứng dụng thoát.
         """
-        # Lặp qua một bản sao của danh sách keys để có thể xóa item khỏi dict gốc
         for key in list(self.cameras.keys()):
-            camera = self.cameras.pop(key, None) # Lấy và xóa camera khỏi dict
+            camera = self.cameras.pop(key, None)
             if camera:
                 try:
                     camera.stop()
-                    del camera # Xóa đối tượng một cách tường minh
+                    del camera
                 except Exception as e:
                     print(f"Lỗi khi dừng camera cho vùng {key}: {e}")
         print("[+] Đã dừng và giải phóng tất cả camera DXcam.")
