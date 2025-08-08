@@ -12,19 +12,15 @@ class ConditionalLogicHandler:
         self.app = app_instance
         self.image_recognizer = image_recognizer
         self.template_cache = {}
-        # Executor để chạy các tác vụ kiểm tra ảnh song song, giới hạn 10 luồng cùng lúc
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=10, thread_name_prefix='ImageCheck')
 
     def shutdown_executor(self):
-        """Dọn dẹp và tắt ThreadPoolExecutor khi ứng dụng thoát."""
         print("Shutting down image checking thread pool...")
-        # Tắt executor, không chờ các luồng hoàn thành và cố gắng hủy chúng
         self.executor.shutdown(wait=False, cancel_futures=True)
 
     def clear_template_cache(self):
-        """Xóa bộ đệm ảnh mẫu khi tải cấu hình mới."""
         self.template_cache.clear()
-        self.app.home_tab.log_message("Đã xóa cache ảnh mẫu.")
+        self.app.trang_chu_tab.log_message("Đã xóa cache ảnh mẫu.")
 
     def _process_config_to_actions(self, combo_config):
         actions = []
@@ -37,7 +33,6 @@ class ConditionalLogicHandler:
         return actions
 
     def get_disabled_keys(self, sub_combo_full_config):
-        """Quét các quy tắc và trả về một tập hợp (set) các phím bị vô hiệu hóa."""
         disabled_keys = set()
         image_based_rules = {
             "Skill": sub_combo_full_config.get("skill", {}),
@@ -56,33 +51,87 @@ class ConditionalLogicHandler:
         return disabled_keys
 
     def _check_image_rule_task(self, rule_name, rule_config):
-        """Hàm tác vụ để kiểm tra một quy tắc ảnh, được thiết kế để chạy trong một luồng."""
         if self._check_image_condition(rule_config):
             actions = self._process_config_to_actions(rule_config.get("combo"))
             if actions:
                 return actions, rule_name
         return None, None
 
+    def get_current_mana_level(self, mana_config):
+        """
+        Xác định mức mana hiện tại bằng cách tìm orb đầu tiên ở trạng thái "Tắt".
+        """
+        detection_config = mana_config.get("detection", {})
+        coords_list = detection_config.get("coords_manual", [])
+        
+        # Lấy cả hai thư viện màu
+        color_library_on = detection_config.get("color_library_manual_on", [])
+        color_library_off = detection_config.get("color_library_manual_off", [])
+
+        if not coords_list or not color_library_on or not color_library_off:
+            return None # Cần tất cả cấu hình để tiếp tục
+
+        try:
+            tolerance = int(detection_config.get("tolerance", 10))
+            rgb_colors_on = [_hex_to_rgb(c) for c in color_library_on]
+            rgb_colors_off = [_hex_to_rgb(c) for c in color_library_off]
+            
+            # Chụp ảnh màn hình một lần duy nhất để tối ưu hiệu suất
+            screenshot = ImageGrab.grab()
+            
+            # Duyệt ngược từ orb cao nhất (orb #10) xuống thấp nhất
+            # Tọa độ trong coords_list được sắp xếp từ 1 đến 10
+            for i in range(len(coords_list) - 1, -1, -1):
+                orb_data = coords_list[i]
+                coord = orb_data.get('coord')
+
+                if not coord:
+                    continue
+
+                pixel_color_rgb = screenshot.getpixel(coord)
+
+                # Kiểm tra xem màu pixel có khớp với thư viện màu "Bật" không
+                is_on = any(_are_colors_similar(pixel_color_rgb, on_color, tolerance) for on_color in rgb_colors_on)
+                
+                # Kiểm tra xem màu pixel có khớp với thư viện màu "Tắt" không
+                is_off = any(_are_colors_similar(pixel_color_rgb, off_color, tolerance) for off_color in rgb_colors_off)
+
+                # LOGIC CHÍNH: Nếu orb này không phải màu "Bật" VÀ là màu "Tắt",
+                # thì đây là orb đầu tiên bị mất mana.
+                # Mức mana hiện tại là mức của orb ngay trước nó.
+                if not is_on and is_off:
+                    # Mức mana hiện tại là chỉ số của orb này (ví dụ: orb thứ 5 có chỉ số 4)
+                    return i 
+
+            # Nếu vòng lặp kết thúc mà không tìm thấy orb nào ở trạng thái "Tắt",
+            # có nghĩa là tất cả các orb đều đang đầy.
+            return 10
+
+        except (IndexError, ValueError, OSError, TypeError) as e:
+            self.app.trang_chu_tab.log_message(f"Lỗi nhận diện Mana: {e}")
+            return None
+
     def check_for_sub_combo(self, sub_combo_full_config):
-        """
-        Kiểm tra các điều kiện combo phụ theo thứ tự ưu tiên:
-        1. HP (tuần tự)
-        2. Mana (tuần tự)
-        3. Các quy tắc ảnh đơn giản (Skill, Crit) - kiểm tra song song
-        4. Các quy tắc ảnh phức tạp ("act-then-check") - kiểm tra tuần tự
-        """
-        # Ưu tiên 1 & 2: Kiểm tra HP và Mana tuần tự vì chúng nhanh và quan trọng nhất
+        # Ưu tiên 1: HP
         hp_config = sub_combo_full_config.get("hp", {})
         if hp_config.get("enabled") == "on" and self._check_hp_threshold_condition(hp_config):
             actions = self._process_config_to_actions(hp_config.get("combo"))
             if actions: return actions, f"HP (dưới {hp_config.get('threshold')}%)"
 
+        # Ưu tiên 2: Mana (Sử dụng logic khớp chính xác)
         mana_config = sub_combo_full_config.get("mana", {})
-        if mana_config.get("enabled") == "on" and self._check_mana_threshold_condition(mana_config):
-            actions = self._process_config_to_actions(mana_config.get("combo"))
-            if actions: return actions, f"Mana (dưới {mana_config.get('threshold')})"
+        if mana_config:
+            current_mana_level = self.get_current_mana_level(mana_config)
+            if current_mana_level is not None:
+                # Tìm quy tắc có mức mana khớp chính xác với mana hiện tại
+                for rule in mana_config.get("rules", []):
+                    if rule.get("enabled") == "on" and rule.get("level") == current_mana_level:
+                        actions = self._process_config_to_actions(rule.get("combo"))
+                        if actions:
+                            return actions, f"Mana (mức {current_mana_level})"
+                        break
 
-        # Phân loại các quy tắc ảnh để xử lý
+        # Ưu tiên 3 & 4: Các quy tắc ảnh
         simple_image_rules = []
         complex_image_rules = []
         image_based_configs = {
@@ -98,42 +147,32 @@ class ConditionalLogicHandler:
                     else:
                         complex_image_rules.append((rule_name, config))
 
-        # Ưu tiên 3: Kiểm tra song song các quy tắc ảnh đơn giản
         if simple_image_rules:
             future_to_rule = {self.executor.submit(self._check_image_rule_task, name, config): (name, config) for name, config in simple_image_rules}
             try:
-                # Lấy kết quả của luồng nào hoàn thành trước
                 for future in concurrent.futures.as_completed(future_to_rule):
                     actions, name = future.result()
                     if actions:
-                        # Nếu tìm thấy, hủy các luồng khác và trả về kết quả ngay lập tức
                         for f in future_to_rule: f.cancel()
                         return actions, name
             except Exception:
-                # Lỗi có thể xảy ra nếu cửa sổ đóng khi đang kiểm tra, bỏ qua
                 pass
 
-        # Ưu tiên 4: Kiểm tra tuần tự các quy tắc phức tạp ("act-then-check")
-        # Chỉ chạy nếu không có quy tắc đơn giản nào khớp
         for rule_name, rule_config in complex_image_rules:
             pre_actions = self._process_config_to_actions(rule_config.get("combo"))
             if not pre_actions: continue
             
-            # Thực thi hành động trước ngay tại đây
             for key, delay_ms in pre_actions:
                 self.app.key_sender.send_key(key)
                 if delay_ms > 0: time.sleep(delay_ms / 1000.0)
             
-            time.sleep(0.0001) # Chờ game cập nhật giao diện
+            time.sleep(0.0001)
             
-            # Sau đó kiểm tra điều kiện
             if self._check_image_condition(rule_config):
                 post_actions = self._process_config_to_actions(rule_config.get("combo_post"))
                 if post_actions:
-                    # Nếu điều kiện đúng, trả về combo sau điều kiện
                     return post_actions, f"{rule_name} (Sau ĐK)"
         
-        # Nếu không có quy tắc nào khớp, trả về None để chạy combo chính
         return None, None
 
     def _check_image_condition(self, rule_config):
@@ -158,26 +197,19 @@ class ConditionalLogicHandler:
                 template_cv = cv2.cvtColor(np.array(template_pil), cv2.COLOR_RGB2BGR)
                 self.template_cache[template_b64] = template_cv
             except Exception as e:
-                self.app.root.after(0, self.app.home_tab.log_message, f"Lỗi chuyển đổi ảnh mẫu: {e}")
+                self.app.trang_chu_tab.log_message(f"Lỗi chuyển đổi ảnh mẫu: {e}")
                 return False
 
         try:
             match_location = self.image_recognizer.find_image(template_cv, region, confidence)
             return match_location is not None
         except Exception as e:
-            self.app.root.after(0, self.app.home_tab.log_message, f"Lỗi DXcam khi kiểm tra ảnh: {e}")
+            self.app.trang_chu_tab.log_message(f"Lỗi DXcam khi kiểm tra ảnh: {e}")
             return False
 
     def get_current_hp_percentage(self, hp_config):
-        mode = self.app.settings_tab.detection_mode_var.get()
-        
-        if mode == "Tự động (Profile)":
-            region = self.app.layout_manager.get_located_region('HP_BAR_AREA')
-            profile_data = self.app.layout_manager.active_profile_data.get('HP_BAR_AREA', {})
-            color_library = profile_data.get('hp_color_library', [])
-        else: # Chế độ Thủ công
-            region = hp_config.get("hp_bar_region_manual")
-            color_library = hp_config.get("hp_color_library_manual", [])
+        region = hp_config.get("hp_bar_region_manual")
+        color_library = hp_config.get("hp_color_library_manual", [])
 
         if not region or not color_library:
             return None
@@ -208,7 +240,7 @@ class ConditionalLogicHandler:
             
             return (filled_width / bar_width) * 100
         except Exception as e:
-            self.app.root.after(0, self.app.home_tab.log_message, f"Lỗi nhận diện HP: {e}")
+            self.app.trang_chu_tab.log_message(f"Lỗi nhận diện HP: {e}")
             return None
 
     def _check_hp_threshold_condition(self, hp_config):
@@ -218,36 +250,4 @@ class ConditionalLogicHandler:
             threshold = int(hp_config.get("threshold", 30))
             return current_hp < threshold
         except (ValueError, TypeError):
-            return False
-
-    def _check_mana_threshold_condition(self, mana_config):
-        mode = self.app.settings_tab.detection_mode_var.get()
-        
-        try:
-            threshold = int(mana_config.get("threshold", 1))
-            
-            if mode == "Tự động (Profile)":
-                mana_area_coords = self.app.layout_manager.get_located_region('MANA_ORBS_AREA')
-                if not mana_area_coords: return False
-                profile_data = self.app.layout_manager.active_profile_data.get('MANA_ORBS_AREA', {})
-                relative_orb_coords = profile_data.get('relative_orb_coords', [])
-                color_library = profile_data.get('mana_color_library', [])
-                if not relative_orb_coords or not color_library: return False
-                relative_coord = relative_orb_coords[threshold - 1]
-                absolute_coord = (mana_area_coords[0] + relative_coord[0], mana_area_coords[1] + relative_coord[1])
-            else: # Chế độ Thủ công
-                mana_coords = mana_config.get("mana_coords_manual", [])
-                color_library = mana_config.get("mana_color_library_manual", [])
-                if not mana_coords or not color_library: return False
-                absolute_coord = mana_coords[threshold - 1]['coord']
-
-            tolerance = int(mana_config.get("tolerance", 10))
-            rgb_color_library = [_hex_to_rgb(c) for c in color_library]
-            
-            pixel_color_rgb = ImageGrab.grab(bbox=(absolute_coord[0], absolute_coord[1], absolute_coord[0] + 1, absolute_coord[1] + 1)).getpixel((0, 0))
-            
-            is_a_match = any(_are_colors_similar(pixel_color_rgb, mana_color, tolerance) for mana_color in rgb_color_library)
-            return not is_a_match
-        except (IndexError, ValueError, OSError, TypeError) as e:
-            self.app.root.after(0, self.app.home_tab.log_message, f"Lỗi nhận diện Mana: {e}")
             return False
