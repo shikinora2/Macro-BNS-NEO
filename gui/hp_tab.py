@@ -10,9 +10,8 @@ class HPTab(ctk.CTkFrame):
         super().__init__(master, **kwargs)
         self.app = app
         
-        # SỬA LỖI: Tách biệt danh sách skill cho từng chế độ
-        self.auto_skill_rows = []
-        self.manual_skill_rows = []
+        # CHỈNH SỬA: Chỉ cần một danh sách skill
+        self.skill_rows = []
         
         # Dữ liệu cho chế độ thủ công
         self.manual_hp_bar_region = None
@@ -23,75 +22,15 @@ class HPTab(ctk.CTkFrame):
         self.threshold_var = ctk.IntVar(value=30)
         self.tolerance_var = ctk.StringVar(value="15")
 
-        # --- Frame chính chứa 2 chế độ ---
-        self.auto_mode_frame = ctk.CTkFrame(self)
-        self.manual_mode_frame = ctk.CTkFrame(self)
-
-        self._create_auto_mode_ui()
+        # CHỈNH SỬA: Xóa bỏ frame auto và manual, tạo UI trực tiếp
         self._create_manual_mode_ui()
 
-        # Mặc định hiển thị chế độ tự động
-        self.update_ui_mode("Tự động (Profile)")
-
-    def update_ui_mode(self, mode):
-        """Hiển thị giao diện tương ứng với chế độ được chọn."""
-        if mode == "Tự động (Profile)":
-            self.manual_mode_frame.pack_forget()
-            self.auto_mode_frame.pack(fill="both", expand=True)
-        else: # Chế độ Thủ công
-            self.auto_mode_frame.pack_forget()
-            self.manual_mode_frame.pack(fill="both", expand=True)
-
-    def _create_auto_mode_ui(self):
-        main_frame = ctk.CTkFrame(self.auto_mode_frame, border_width=1, border_color="gray25")
-        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        title_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        title_frame.pack(fill="x", padx=10, pady=(5, 10))
-        ctk.CTkLabel(title_frame, text="Quy tắc phục hồi HP (Máu)", font=ctk.CTkFont(weight="bold")).pack(side="left")
-        ctk.CTkCheckBox(title_frame, text="Bật quy tắc", variable=self.enabled_var, onvalue="on", offvalue="off").pack(side="right")
-        
-        content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        content_frame.pack(fill="both", expand=True, padx=5, pady=5)
-        content_frame.grid_columnconfigure(0, weight=1)
-        content_frame.grid_columnconfigure(1, weight=1)
-        
-        condition_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-        condition_frame.grid(row=0, column=0, sticky="nsew", padx=5)
-        ctk.CTkLabel(condition_frame, text="Điều kiện (Chế độ Tự động)", font=ctk.CTkFont(weight="bold")).pack(anchor="w", pady=(0, 10))
-        
-        locate_frame = ctk.CTkFrame(condition_frame)
-        locate_frame.pack(fill="x", pady=5)
-        ctk.CTkButton(locate_frame, text="Định vị tự động thanh HP", command=self.locate_hp_bar).pack(side="left", padx=(0, 10))
-        self.locate_status_label = ctk.CTkLabel(locate_frame, text="Trạng thái: Chưa định vị", text_color="gray")
-        self.locate_status_label.pack(side="left")
-        
-        threshold_label_frame = ctk.CTkFrame(condition_frame, fg_color="transparent")
-        threshold_label_frame.pack(fill="x", pady=10)
-        ctk.CTkLabel(threshold_label_frame, text="Sử dụng combo khi HP dưới (%):").pack(side="left")
-        ctk.CTkLabel(threshold_label_frame, textvariable=self.threshold_var, font=ctk.CTkFont(weight="bold", size=16), text_color="#E53935").pack(side="left", padx=5)
-        ctk.CTkSlider(condition_frame, from_=1, to=100, number_of_steps=99, variable=self.threshold_var).pack(fill="x", pady=5)
-        
-        tolerance_frame = ctk.CTkFrame(condition_frame, fg_color="transparent")
-        tolerance_frame.pack(fill="x", pady=(10, 5))
-        ctk.CTkLabel(tolerance_frame, text="Sai số màu (%):").pack(side="left")
-        ctk.CTkEntry(tolerance_frame, textvariable=self.tolerance_var, width=60).pack(side="left", padx=5)
-        
-        action_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-        action_frame.grid(row=0, column=1, sticky="new", padx=5)
-        
-        skill_title_frame = ctk.CTkFrame(action_frame, fg_color="transparent")
-        skill_title_frame.pack(fill="x", pady=(0, 5))
-        ctk.CTkLabel(skill_title_frame, text="Combo sử dụng:", font=ctk.CTkFont(weight="bold")).pack(side="left")
-        # SỬA LỖI: Thêm skill vào đúng danh sách
-        ctk.CTkButton(skill_title_frame, text="(+) Thêm", width=60, height=20, command=lambda: self._add_skill_row(self.auto_skills_container, self.auto_skill_rows)).pack(side="left", padx=10)
-        
-        self.auto_skills_container = ctk.CTkFrame(action_frame, fg_color="transparent")
-        self.auto_skills_container.pack(fill="x", expand=True)
-        self._add_skill_row(self.auto_skills_container, self.auto_skill_rows, key="4")
+    # XÓA BỎ: update_ui_mode
+    # XÓA BỎ: _create_auto_mode_ui
 
     def _create_manual_mode_ui(self):
-        main_frame = ctk.CTkFrame(self.manual_mode_frame, border_width=1, border_color="gray25")
+        # CHỈNH SỬA: Frame này giờ là frame chính của tab
+        main_frame = ctk.CTkFrame(self, border_width=1, border_color="gray25")
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         title_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
@@ -106,7 +45,7 @@ class HPTab(ctk.CTkFrame):
         
         condition_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
         condition_frame.grid(row=0, column=0, sticky="nsew", padx=5)
-        ctk.CTkLabel(condition_frame, text="Điều kiện (Chế độ Thủ công)", font=ctk.CTkFont(weight="bold")).pack(anchor="w", pady=(0, 10))
+        ctk.CTkLabel(condition_frame, text="Điều kiện", font=ctk.CTkFont(weight="bold")).pack(anchor="w", pady=(0, 10))
         
         region_frame = ctk.CTkFrame(condition_frame)
         region_frame.pack(fill="x", pady=5)
@@ -143,22 +82,14 @@ class HPTab(ctk.CTkFrame):
         skill_title_frame = ctk.CTkFrame(action_frame, fg_color="transparent")
         skill_title_frame.pack(fill="x", pady=(0, 5))
         ctk.CTkLabel(skill_title_frame, text="Combo sử dụng:", font=ctk.CTkFont(weight="bold")).pack(side="left")
-        # SỬA LỖI: Thêm skill vào đúng danh sách
-        ctk.CTkButton(skill_title_frame, text="(+) Thêm", width=60, height=20, command=lambda: self._add_skill_row(self.manual_skills_container, self.manual_skill_rows)).pack(side="left", padx=10)
+        ctk.CTkButton(skill_title_frame, text="(+) Thêm", width=60, height=20, command=lambda: self._add_skill_row(self.skills_container, self.skill_rows)).pack(side="left", padx=10)
         
-        self.manual_skills_container = ctk.CTkFrame(action_frame, fg_color="transparent")
-        self.manual_skills_container.pack(fill="x", expand=True)
-        self._add_skill_row(self.manual_skills_container, self.manual_skill_rows, key="4")
+        self.skills_container = ctk.CTkFrame(action_frame, fg_color="transparent")
+        self.skills_container.pack(fill="x", expand=True)
+        self._add_skill_row(self.skills_container, self.skill_rows, key="4")
         self._update_manual_color_display()
 
-    def locate_hp_bar(self):
-        self.locate_status_label.configure(text="Trạng thái: Đang tìm...", text_color="orange")
-        success = self.app.layout_manager.locate_ui_element('HP_BAR_AREA')
-        if success:
-            coords = self.app.layout_manager.get_located_region('HP_BAR_AREA')
-            self.locate_status_label.configure(text=f"Đã tìm thấy tại {coords}", text_color="lightgreen")
-        else:
-            self.locate_status_label.configure(text="Trạng thái: Không tìm thấy!", text_color="red")
+    # XÓA BỎ: locate_hp_bar
 
     def _pick_hp_bar_region_manual(self):
         self.app.root.withdraw()
@@ -197,7 +128,6 @@ class HPTab(ctk.CTkFrame):
             self.manual_color_library.pop()
             self._update_manual_color_display()
 
-    # SỬA LỖI: Cập nhật hàm để nhận vào danh sách skill cụ thể
     def _add_skill_row(self, parent, skill_list, key="", delay="100"):
         row_frame = ctk.CTkFrame(parent, fg_color="transparent")
         row_frame.pack(fill="x", pady=2)
@@ -213,19 +143,14 @@ class HPTab(ctk.CTkFrame):
         remove_button.pack(side="left", padx=5)
         skill_list.append(row_widgets)
 
-    # SỬA LỖI: Cập nhật hàm để nhận vào danh sách skill cụ thể
     def _remove_skill_row(self, row_widgets, skill_list):
         row_widgets['frame'].destroy()
         if row_widgets in skill_list:
             skill_list.remove(row_widgets)
 
     def get_config(self):
-        # SỬA LỖI: Lấy combo từ chế độ đang hoạt động
-        current_mode = self.app.settings_tab.detection_mode_var.get()
-        if current_mode == "Tự động (Profile)":
-            combo_list = [{"key": r['key'].get(), "delay": r['delay'].get()} for r in self.auto_skill_rows if r['key'].get()]
-        else:
-            combo_list = [{"key": r['key'].get(), "delay": r['delay'].get()} for r in self.manual_skill_rows if r['key'].get()]
+        # CHỈNH SỬA: Lấy combo trực tiếp
+        combo_list = [{"key": r['key'].get(), "delay": r['delay'].get()} for r in self.skill_rows if r['key'].get()]
             
         return {
             "enabled": self.enabled_var.get(),
@@ -237,7 +162,7 @@ class HPTab(ctk.CTkFrame):
         }
 
     def set_config(self, data):
-        if not data: return
+        if not data: data = {} # Đảm bảo data là dict
         self.enabled_var.set(data.get("enabled", "off"))
         self.threshold_var.set(data.get("threshold", 30))
         self.tolerance_var.set(data.get("tolerance", "15"))
@@ -250,21 +175,13 @@ class HPTab(ctk.CTkFrame):
         self.manual_color_library = data.get("hp_color_library_manual", DEFAULT_HP_COLOR_LIBRARY[:])
         self._update_manual_color_display()
 
-        if self.app.layout_manager.get_located_region('HP_BAR_AREA'):
-            self.locate_status_label.configure(text="Trạng thái: Đã định vị", text_color="lightgreen")
-
-        # SỬA LỖI: Xóa và tạo lại combo cho cả hai chế độ một cách riêng biệt
-        for row in self.auto_skill_rows: row['frame'].destroy()
-        self.auto_skill_rows.clear()
-        for row in self.manual_skill_rows: row['frame'].destroy()
-        self.manual_skill_rows.clear()
+        # CHỈNH SỬA: Xóa và tạo lại combo
+        for row in self.skill_rows: row['frame'].destroy()
+        self.skill_rows.clear()
 
         combo_list = data.get("combo", [])
         if not combo_list:
-            self._add_skill_row(self.auto_skills_container, self.auto_skill_rows)
-            self._add_skill_row(self.manual_skills_container, self.manual_skill_rows)
+            self._add_skill_row(self.skills_container, self.skill_rows)
         else:
             for skill in combo_list:
-                # Khi tải, áp dụng combo cho cả hai chế độ để đồng bộ
-                self._add_skill_row(self.auto_skills_container, self.auto_skill_rows, key=skill.get("key", ""), delay=skill.get("delay", ""))
-                self._add_skill_row(self.manual_skills_container, self.manual_skill_rows, key=skill.get("key", ""), delay=skill.get("delay", ""))
+                self._add_skill_row(self.skills_container, self.skill_rows, key=skill.get("key", ""), delay=skill.get("delay", ""))
