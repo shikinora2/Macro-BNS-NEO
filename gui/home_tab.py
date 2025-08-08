@@ -19,7 +19,6 @@ class HomeTab(ctk.CTkFrame):
         top_frame.grid_columnconfigure(1, weight=1)
         top_frame.grid_columnconfigure(3, weight=1)
 
-        # --- Dòng 0: License ---
         ctk.CTkLabel(top_frame, text="License Key:", font=ctk.CTkFont(weight="bold", size=12), width=100, anchor="w").grid(row=0, column=0, padx=(0, 5), pady=(0, 8), sticky="w")
         self.license_key_entry = ctk.CTkEntry(top_frame, placeholder_text="Nhập key của bạn tại đây")
         self.license_key_entry.grid(row=0, column=1, columnspan=2, padx=(0, 5), pady=(0, 8), sticky="ew")
@@ -31,7 +30,6 @@ class HomeTab(ctk.CTkFrame):
         self.expiration_label = ctk.CTkLabel(top_frame, text="Chưa kích hoạt", font=ctk.CTkFont(weight="bold"), text_color="gray", anchor="w")
         self.expiration_label.grid(row=0, column=5, pady=(0, 8), sticky="w")
 
-        # --- Dòng 1: Hotkey & Trạng thái ---
         ctk.CTkLabel(top_frame, text="HOTKEY:", font=ctk.CTkFont(weight="bold", size=12), width=100, anchor="w").grid(row=1, column=0, padx=(0, 5), pady=(0, 8), sticky="w")
         self.hotkey_combo = ctk.CTkComboBox(top_frame, values=["Chuột giữa", "Chuột cạnh dưới", "Chuột cạnh trên"], state="readonly", width=150)
         self.hotkey_combo.grid(row=1, column=1, padx=(0, 5), pady=(0, 8), sticky="w")
@@ -46,14 +44,12 @@ class HomeTab(ctk.CTkFrame):
         self.status_label = ctk.CTkLabel(top_frame, text="Sẵn sàng", font=ctk.CTkFont(weight="bold"), text_color="#5cb85c", anchor="w")
         self.status_label.grid(row=1, column=5, pady=(0, 8), sticky="w")
 
-        # --- Dòng 2: Cửa sổ Game ---
         ctk.CTkLabel(top_frame, text="Cửa sổ Game:", font=ctk.CTkFont(weight="bold", size=12), width=100, anchor="w").grid(row=2, column=0, padx=(0, 5), pady=(0, 8), sticky="w")
         self.window_combo = ctk.CTkComboBox(top_frame, values=[""], state="readonly")
         self.window_combo.grid(row=2, column=1, columnspan=3, padx=(0, 5), pady=(0, 8), sticky="ew")
         self.refresh_button = ctk.CTkButton(top_frame, text="Làm mới", width=80, font=ctk.CTkFont(size=11), command=self._refresh_window_list)
         self.refresh_button.grid(row=2, column=4, columnspan=2, padx=(5,0), pady=(0, 8), sticky="w")
 
-        # --- Dòng 3: Hiệu suất (FPS) ---
         ctk.CTkLabel(top_frame, text="HIỆU SUẤT:", font=ctk.CTkFont(weight="bold", size=12), width=100, anchor="w").grid(row=3, column=0, padx=(0, 5), pady=(0, 8), sticky="w")
         self.fps_label = ctk.CTkLabel(top_frame, text="N/A", font=ctk.CTkFont(weight="bold"), text_color="cyan", anchor="w")
         self.fps_label.grid(row=3, column=1, pady=(0, 8), sticky="w")
@@ -79,8 +75,54 @@ class HomeTab(ctk.CTkFrame):
         self.log_message("Ứng dụng đã sẵn sàng. Vui lòng kích hoạt License Key.")
         self.after(150, self._refresh_window_list)
     
+    def _get_all_configs(self, save_key=False):
+        # SỬA LỖI: Sử dụng đúng tên thuộc tính đã được định nghĩa trong main.py
+        config = {
+            "home": { 
+                "hotkey": self.hotkey_combo.get(), 
+                "hotkey_mode": self.hotkey_mode_combo.get(), 
+                "target_window": self.window_combo.get(),
+            },
+            "main_combo": self.app.combo_chinh_tab.get_config(), 
+            "hp": self.app.hp_tab.get_config(),
+            "mana": self.app.mana_tab.get_config(),
+            "skill": self.app.skill_tab.get_config(),
+            "crit": self.app.crit_tab.get_config(),
+            "settings": self.app.cai_dat_tab.get_config(), 
+        }
+        if save_key:
+            config["home"]["license_key"] = self.license_key_entry.get()
+        return config
+
+    def _set_all_configs(self, config_data):
+        # SỬA LỖI: Sử dụng đúng tên thuộc tính đã được định nghĩa trong main.py
+        home_config = config_data.get("home", {})
+        self.hotkey_combo.set(home_config.get("hotkey", "Chuột giữa"))
+        self.hotkey_mode_combo.set(home_config.get("hotkey_mode", "Giữ để chạy"))
+        
+        target_window = home_config.get("target_window", "")
+        if target_window and target_window in self.window_combo.cget("values"):
+            self.window_combo.set(target_window)
+        
+        saved_key = home_config.get("license_key")
+        if saved_key:
+            self.license_key_entry.delete(0, "end")
+            self.license_key_entry.insert(0, saved_key)
+            self.app.activate_license()
+
+        self.app.combo_chinh_tab.set_config(config_data.get("main_combo", {}))
+        self.app.hp_tab.set_config(config_data.get("hp", {}))
+        self.app.mana_tab.set_config(config_data.get("mana", {}))
+        self.app.skill_tab.set_config(config_data.get("skill", {}))
+        self.app.crit_tab.set_config(config_data.get("crit", {}))
+        self.app.cai_dat_tab.set_config(config_data.get("settings", {}))
+        
+        self.app.condition_handler.clear_template_cache()
+        
+        self.update_status("ready")
+        self.log_message("Tải cấu hình hoàn tất.")
+
     def update_performance_display(self, fps):
-        """Cập nhật nhãn hiển thị FPS của macro."""
         try:
             if not self.winfo_exists(): return
             if fps > 0:
@@ -163,45 +205,21 @@ class HomeTab(ctk.CTkFrame):
             self.log_text.configure(state="disabled")
         except (RuntimeError, TclError):
             pass
-
-    def _get_all_configs(self, save_key=False):
-        config = {
-            "home": { 
-                "hotkey": self.hotkey_combo.get(), 
-                "hotkey_mode": self.hotkey_mode_combo.get(), 
-                "target_window": self.window_combo.get(),
-            },
-            "main_combo": self.app.main_combo_tab.get_config(), 
-            "sub_combo": self.app.sub_combo_tab.get_config(),
-            "settings": self.app.settings_tab.get_config(), 
-        }
-        if save_key:
-            config["home"]["license_key"] = self.license_key_entry.get()
-        return config
-
-    def _set_all_configs(self, config_data):
-        home_config = config_data.get("home", {})
-        self.hotkey_combo.set(home_config.get("hotkey", "Chuột giữa"))
-        self.hotkey_mode_combo.set(home_config.get("hotkey_mode", "Giữ để chạy"))
-        
-        target_window = home_config.get("target_window", "")
-        if target_window and target_window in self.window_combo.cget("values"):
-            self.window_combo.set(target_window)
-        
-        saved_key = home_config.get("license_key")
-        if saved_key:
-            self.license_key_entry.delete(0, "end")
-            self.license_key_entry.insert(0, saved_key)
-            self.app.activate_license()
-
-        self.app.main_combo_tab.set_config(config_data.get("main_combo", {}))
-        self.app.sub_combo_tab.set_config(config_data.get("sub_combo", {}))
-        self.app.settings_tab.set_config(config_data.get("settings", {}))
-        
-        self.app.condition_handler.clear_template_cache()
-        
+    
+    def reset_to_default(self):
+        """Reset các cài đặt trên tab Trang Chủ về mặc định."""
+        self.license_key_entry.delete(0, "end")
+        self.update_expiration_date("Chưa kích hoạt", "invalid")
+        self.hotkey_combo.set("Chuột giữa")
+        self.hotkey_mode_combo.set("Giữ để chạy")
         self.update_status("ready")
-        self.log_message("Tải cấu hình hoàn tất.")
+        self.app.combo_chinh_tab.set_config([])
+        self.app.hp_tab.set_config({})
+        self.app.mana_tab.set_config({})
+        self.app.skill_tab.set_config({})
+        self.app.crit_tab.set_config({})
+        self.app.cai_dat_tab.set_config({})
+
 
     def _save_last_config_path(self, path):
         try:
@@ -263,4 +281,3 @@ class HomeTab(ctk.CTkFrame):
         except Exception as e:
             self.log_message(f"Lỗi khi tải cấu hình: {e}")
             messagebox.showerror("Lỗi Tải File", f"Không thể đọc file cấu hình.\nFile có thể bị hỏng hoặc không đúng định dạng.\n\nChi tiết: {e}", parent=self.app.root)
-
